@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { registerUser } from "../service/authService";
+import { useNavigate, Link } from "react-router-dom";
+import { registerUser, updateUser } from "../service/authService";
 
-const initialForm = {
+const defaultInitial = {
   name: "",
   email: "",
   password: "",
@@ -20,9 +21,22 @@ const initialForm = {
   resume: null
 };
 
-const Register = () => {
-  const [formData, setFormData] = useState(initialForm);
-  const [preview, setPreview] = useState(null);
+const Register = ({ isEdit = false, editData = null, onSave, onCancel }) => {
+  const navigate = useNavigate();
+
+  // If in edit mode, populate with existing user data
+  const [formData, setFormData] = useState(() => {
+    if (isEdit && editData) {
+      return {
+        ...defaultInitial,
+        ...editData,
+        password: "" // Don't prefill password
+      };
+    }
+    return defaultInitial;
+  });
+
+  const [preview, setPreview] = useState(isEdit ? editData?.profileImage : null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -60,12 +74,17 @@ const Register = () => {
         payload.append(key, Array.isArray(val) ? JSON.stringify(val) : val);
       });
 
-      const res = await registerUser(payload);
-      setMessage(res.message || "Registration successful!");
-      setFormData(initialForm);
-      setPreview(null);
+      if (isEdit) {
+        // Edit flow: Call PUT /api/auth/user/:id
+        const res = await updateUser(editData.id, payload);
+        if (onSave) onSave(res.user);
+      } else {
+        // Register flow: Call POST /api/auth/register
+        await registerUser(payload);
+        navigate("/login");
+      }
     } catch (err) {
-      setMessage(err.response?.data?.message || "Registration failed");
+      setMessage(err.response?.data?.message || "Operation failed");
     } finally {
       setLoading(false);
     }
@@ -75,7 +94,9 @@ const Register = () => {
     <div className="min-h-screen flex items-center justify-center p-6 bg-white text-black">
       <form onSubmit={handleSubmit} className="w-full max-w-lg border border-black p-6 rounded space-y-4">
         
-        <h2 className="text-2xl font-bold text-center">Registration Form</h2>
+        <h2 className="text-2xl font-bold text-center">
+          {isEdit ? "Edit Profile" : "Registration Form"}
+        </h2>
         
         {message && (
           <p className="border border-black p-2 text-center text-sm font-semibold">
@@ -112,16 +133,18 @@ const Register = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Password *</label>
+            <label className="block text-sm font-medium mb-1">
+              {isEdit ? "New Password (optional)" : "Password *"}
+            </label>
             <input
               type="password"
               name="password"
-              minLength={6}
+              minLength={isEdit ? 0 : 6}
               value={formData.password}
               onChange={handleChange}
               className="w-full border border-black p-2 rounded"
-              placeholder="Min 6 characters"
-              required
+              placeholder={isEdit ? "Leave blank to keep same" : "Min 6 characters"}
+              required={!isEdit}
             />
           </div>
         </div>
@@ -319,14 +342,35 @@ const Register = () => {
           </label>
         </div>
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-black text-white p-2 rounded font-semibold hover:bg-gray-800 disabled:bg-gray-400 cursor-pointer"
-        >
-          {loading ? "Submitting..." : "Register"}
-        </button>
+        {/* Buttons */}
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 bg-black text-white p-2 rounded font-semibold hover:bg-gray-800 disabled:bg-gray-400 cursor-pointer"
+          >
+            {loading ? "Saving..." : isEdit ? "Save Changes" : "Register"}
+          </button>
+          
+          {isEdit && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="border border-black px-4 rounded font-semibold hover:bg-gray-100 cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+
+        {!isEdit && (
+          <p className="text-center text-sm">
+            Already have an account?{" "}
+            <Link to="/login" className="font-bold underline">
+              Login
+            </Link>
+          </p>
+        )}
 
       </form>
     </div>
