@@ -1,6 +1,11 @@
 import express from "express";
 import { upload } from "../middleware/upload.js";
 import {
+  registerValidation,
+  loginValidation,
+  idValidation
+} from "../validators/authValidator.js";
+import {
   registerUser,
   loginUser,
   getUser,
@@ -14,10 +19,10 @@ const uploadFields = upload.fields([
   { name: "resume", maxCount: 1 }
 ]);
 
-// Auth routes
-router.post("/register", uploadFields, registerUser);
-router.post("/login", loginUser);
-router.get("/user/:id", getUser);
-router.put("/user/:id", uploadFields, updateUser);
+// Auth routes with validations
+router.post("/register", uploadFields, registerValidation, registerUser);
+router.post("/login", loginValidation, loginUser);
+router.get("/user/:id", idValidation, getUser);
+router.put("/user/:id", uploadFields, idValidation, updateUser);
 
 export default router;
